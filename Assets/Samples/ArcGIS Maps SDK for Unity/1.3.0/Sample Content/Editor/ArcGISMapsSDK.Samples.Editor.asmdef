@@ -1,0 +1,19 @@
+{
+    "name": "ArcGISMapsSDK.Samples.Editor",
+    "rootNamespace": "",
+    "references": [
+        "GUID:a8683e3dbe9d5c24580f512e02b22195",
+        "GUID:a620728d797078f4299e30d43ab05f28"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
