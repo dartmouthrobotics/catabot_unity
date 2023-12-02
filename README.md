@@ -2,6 +2,13 @@
 
 ![Statue of Liberty](docs/Statue%20of%20Liberty%20High%20Resolution.png)
 
+# Setup Instructions
+
+1. Download the project and extract if needed
+2. Download the [ArcGIS Maps SDK for Unity package](https://developers.arcgis.com/unity/). We used version 1.3.0 of the package, but other versions may work as well.
+3. Put the file `arcgis-maps-sdk-unity-1.3.0.tgz` in the base project folder (the same folder that contains the folders `Assets` and `Packages`)
+4. Open the project in Unity. We used editor version `2022.3.12f1`, but later versions of Unity may work as well.
+
 # Controls are:
 * R and F - Forward and Backward left propeller
 * U and J - Forward and Backward right propeller
