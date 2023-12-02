@@ -8,6 +8,7 @@
 2. Download the [ArcGIS Maps SDK for Unity package](https://developers.arcgis.com/unity/). We used version 1.3.0 of the package, but other versions may work as well.
 3. Put the file `arcgis-maps-sdk-unity-1.3.0.tgz` in the base project folder (the same folder that contains the folders `Assets` and `Packages`)
 4. Open the project in Unity. We used editor version `2022.3.12f1`, but later versions of Unity may work as well.
+5. Current demo scene is located at `Assets/Samples/ArcGIS Maps SDK for Unity/1.3.0/Sample Content/Scenes/HDRP/3DAttributes.unity`
 
 # Controls are:
 * R and F - Forward and Backward left propeller
