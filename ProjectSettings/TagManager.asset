@@ -14,6 +14,8 @@ TagManager:
   - buoy
   - dock
   - marker
+  - Waypoint
+  - BigBoat
   layers:
   - Default
   - TransparentFX
