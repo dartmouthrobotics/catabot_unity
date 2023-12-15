@@ -4,22 +4,35 @@ using UnityEngine;
 
 public class Waypoint_Generator : MonoBehaviour
 {
+    public bool generateWaypointsFromChildren = true;
     public Transform[] waypoints;
     int present_waypoint = 0;
+    private bool forwardDirection = true;
+
+    private bool oceanActive = true;
 
     public Transform boat;
-    public bool oceanActive = true;
     public float speed = 1.00f;
     public float rotspeed = 0.1f;
     
     void Start()
     {
+        oceanActive = GameObject.Find("Ocean").activeInHierarchy;
+        if(generateWaypointsFromChildren) {
+            GenerateWaypointsFromChildren();
+        }
+    }
+
+    public void GenerateWaypointsFromChildren() {
         int waypointCount = transform.childCount;
         waypoints = new Transform[waypointCount];
         for(int i = 0; i < waypointCount; i++) {
             waypoints[i] = transform.GetChild(i);
         }
-        oceanActive = GameObject.Find("Ocean").activeInHierarchy;
+
+        if(waypointCount > 0) {
+            boat.position = waypoints[0].position;
+        }
     }
 
     // Update is called once per frame
@@ -33,10 +46,18 @@ public class Waypoint_Generator : MonoBehaviour
             boat.rotation = Quaternion.Slerp(boat.rotation, Quaternion.LookRotation(direction), Time.deltaTime * rotspeed);
 
             if(direction.magnitude < 0.4f) {
-                present_waypoint++;
-                
-                if(present_waypoint >= waypoints.Length) {
-                    present_waypoint = 0;
+                if(forwardDirection) {
+                    present_waypoint++;
+                    if(present_waypoint >= waypoints.Length) {
+                        present_waypoint = waypoints.Length - 1;
+                        forwardDirection = false;
+                    }
+                } else {
+                    present_waypoint--;
+                    if(present_waypoint <= 0) {
+                        present_waypoint = 0;
+                        forwardDirection = true;
+                    }
                 }
             }
 
