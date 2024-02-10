@@ -1,9 +1,11 @@
 using RosMessageTypes.BuiltinInterfaces;
 using RosMessageTypes.Sensor;
 using RosMessageTypes.Std;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using Unity.Robotics.Core;
 using Unity.Robotics.ROSTCPConnector;
 using Unity.Robotics.ROSTCPConnector.ROSGeometry;
 
@@ -36,6 +38,9 @@ public class Radar : MonoBehaviour
 
     private const string scanTopic = "scan";
     private const string baseScanFrame = "base_scan";
+
+    double m_TimeLastScanBeganSeconds = -1;
+    double m_TimeNextScanSeconds = -1;
 
     void Awake() {
 
@@ -75,11 +80,36 @@ public class Radar : MonoBehaviour
         RadarRaycast();
         LidarRaycast();
 
-        if(broadcastROSMessages) {
-            laserScanMsg.time_increment = Time.deltaTime / 360f;
-            laserScanMsg.scan_time = Time.deltaTime;
-            laserScanMsg.ranges = lidarRanges;
-            m_Ros.Publish(scanTopic, laserScanMsg);
+        if(broadcastROSMessages && Clock.NowTimeInSeconds >= m_TimeNextScanSeconds) {
+            m_TimeLastScanBeganSeconds = Clock.Now;
+            m_TimeNextScanSeconds = m_TimeLastScanBeganSeconds + 0.1;
+
+            var timestamp = new TimeStamp(Clock.time);
+
+            var msg = new LaserScanMsg
+            {
+                header = new HeaderMsg
+                {
+                    frame_id = baseScanFrame,
+                    stamp = new TimeMsg
+                    {
+                        sec = (uint) timestamp.Seconds,
+                        nanosec = timestamp.NanoSeconds,
+                    }
+                },
+                range_min = 0,
+                range_max = lidarRange,
+                angle_min = -Mathf.PI,
+                angle_max = Mathf.PI,
+                angle_increment = (Mathf.PI - -Mathf.PI) / 360f,
+                time_increment = 0.01f,
+                scan_time = 0.1f,
+                intensities = new float[lidarRanges.Length],
+                ranges = lidarRanges,
+                //angles = angles.ToArray();
+            };
+
+            m_Ros.Publish(scanTopic, msg);
         }
     }
 

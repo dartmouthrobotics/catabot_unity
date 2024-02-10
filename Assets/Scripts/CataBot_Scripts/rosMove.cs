@@ -15,6 +15,7 @@ public class rosMove : MonoBehaviour {
 	public Rigidbody rb;
 
     private const string cmdVelTopic = "cmd_vel";
+    public string cmdVelTopicPrefix="";
 
     float forwardVel = 0;
     float verticalVel = 0;
@@ -28,7 +29,7 @@ public class rosMove : MonoBehaviour {
 
     public void ConnectToCmdVel() {
         m_Ros = ROSConnection.GetOrCreateInstance();
-        m_Ros.Subscribe<TwistMsg>(cmdVelTopic, CmdVelCallback);
+        m_Ros.Subscribe<TwistMsg>(cmdVelTopicPrefix + cmdVelTopic, CmdVelCallback);
     }
 
 	// Use this for initialization
