@@ -2,19 +2,11 @@
 
 ![Statue of Liberty](docs/Statue%20of%20Liberty%20High%20Resolution.png)
 
-# Basic Setup Instructions
+# Setup Instructions
 
 1. Download the project and extract if needed
 2. Open the project in Unity. We used editor version `2022.3.12f1`, but later versions of Unity may work as well.
-3. Current demo scenes are located at `Assets/Scenes/3DAttributes.unity` and `Assets/Scenes/TerrainTest.unity`
-
-# ROS Setup Instructions
-
-1. On a Linux operating system (e.g. Ubuntu) that already has ROS installed, you will also need to install the ros_tcp_endpoint. While we've already set up the Unity half of the connection in the project, [this tutorial covers the entire setup process](https://github.com/Unity-Technologies/Unity-Robotics-Hub/blob/main/tutorials/ros_unity_integration/setup.md). Complete the ROS Environemnt section, and then make sure that your local project matches the Unity Setup section. There is an additional demo project section that you do not need to complete.
-2. There are three scripts that have extra ROS functionality available. They are disabled by default in the scene TerrainTest and can be activated as follows:
-    - TF Broadcaster - RosBroadcastAllFrames - Check the Broadcast ROS Messages box to start sending the position of the robot boat and any added traffic boats.
-    - catabot - Radar - Check the Broadcast ROS Messages box to start sending the lidar distances as a laserscan message on the scan topic
-    - catabot - RosMove - Check the Connect On Awake button to be able to control the robot from ROS with twist messages on the cmd_vel topic
+5. Current demo scene is located at `Assets/Scenes/3DAttributes.unity`
 
 # Controls are:
 * R and F - Forward and Backward left propeller

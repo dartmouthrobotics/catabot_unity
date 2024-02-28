@@ -36,6 +36,8 @@ public class RosBroadcastAllFrames : MonoBehaviour {
     private const string robotFrame = "robot";
     private const string baseScanFrame = "base_scan";
 
+    public string rootFrame = "map";
+
     private void Awake () {
         if(broadcastROSMessages) {
             // Get ROS connection static instance
@@ -47,14 +49,14 @@ public class RosBroadcastAllFrames : MonoBehaviour {
             if(robotBoat != null) {
                 haveRobotBoat = true;
                 
-                HeaderMsg robotHeader = new HeaderMsg(0, new TimeMsg((uint)timestamp.Seconds, timestamp.NanoSeconds), odomFrame);
+                HeaderMsg robotHeader = new HeaderMsg(0, new TimeMsg((uint)timestamp.Seconds, timestamp.NanoSeconds), rootFrame);
                 Vector3<FLU> robotPos = robotBoat.position.To<FLU>();
                 TransformMsg robotTrans = new TransformMsg(
                     new Vector3Msg(robotPos.x, robotPos.y, robotPos.z),
                     robotBoat.rotation.To<FLU>()
                 );
-                robotBoatPoseMsg.transforms[0] = new TransformStampedMsg(robotHeader, robotFrame + "_0", robotTrans);
-                HeaderMsg baseScanHeader = new HeaderMsg(0, new TimeMsg((uint)timestamp.Seconds, timestamp.NanoSeconds), robotFrame);
+                robotBoatPoseMsg.transforms[0] = new TransformStampedMsg(robotHeader, robotFrame + "_0/" + odomFrame, robotTrans);
+                HeaderMsg baseScanHeader = new HeaderMsg(0, new TimeMsg((uint)timestamp.Seconds, timestamp.NanoSeconds), robotFrame + "_0/" + odomFrame);
                 TransformMsg baseScanTrans = new TransformMsg(
                     new Vector3Msg(0,0,0),
                     Quaternion.identity.To<FLU>()
@@ -82,13 +84,13 @@ public class RosBroadcastAllFrames : MonoBehaviour {
                 trafficBoatRotLast = new Quaternion[trafficBoats.Length];
 
                 for(int i = 0; i < trafficBoats.Length; i++) {
-                    HeaderMsg header = new HeaderMsg(0, new TimeMsg((uint)timestamp.Seconds, timestamp.NanoSeconds), odomFrame);
+                    HeaderMsg header = new HeaderMsg(0, new TimeMsg((uint)timestamp.Seconds, timestamp.NanoSeconds), rootFrame);
                     Vector3<FLU> trafficPos = trafficBoats[i].position.To<FLU>();
                     TransformMsg trans = new TransformMsg(
                         new Vector3Msg(trafficPos.x, trafficPos.y, trafficPos.z),
                         trafficBoats[i].rotation.To<FLU>()
                     );
-                    trafficBoatsPoseMsg.transforms[i] = new TransformStampedMsg(header, robotFrame + "_" + (i+1), trans);
+                    trafficBoatsPoseMsg.transforms[i] = new TransformStampedMsg(header, robotFrame + "_" + (i+1) + "/" + odomFrame, trans);
 
                     trafficBoatsOdomMsgs[i] = new OdometryMsg();
                     trafficBoatsOdomMsgs[i].header = header;
@@ -117,13 +119,13 @@ public class RosBroadcastAllFrames : MonoBehaviour {
             if(haveRobotBoat) {
                 Vector3<FLU> pos = robotBoat.position.To<FLU>();
 
-                robotBoatPoseMsg.transforms[0].header = new HeaderMsg(0, new TimeMsg((uint)timestamp.Seconds, timestamp.NanoSeconds), odomFrame);
-                robotBoatPoseMsg.transforms[1].header = new HeaderMsg(0, new TimeMsg((uint)timestamp.Seconds, timestamp.NanoSeconds), robotFrame);
+                robotBoatPoseMsg.transforms[0].header = new HeaderMsg(0, new TimeMsg((uint)timestamp.Seconds, timestamp.NanoSeconds), rootFrame);
+                robotBoatPoseMsg.transforms[1].header = new HeaderMsg(0, new TimeMsg((uint)timestamp.Seconds, timestamp.NanoSeconds), robotFrame + "_0/" + odomFrame);
                 robotBoatPoseMsg.transforms[0].transform.translation = new Vector3Msg(pos.x, pos.y, pos.z);
                 robotBoatPoseMsg.transforms[0].transform.rotation = robotBoat.rotation.To<FLU>();
                 m_Ros.Publish(tfTopic, robotBoatPoseMsg);
 
-                robotBoatOdomMsg.header = new HeaderMsg(0, new TimeMsg((uint)timestamp.Seconds, timestamp.NanoSeconds), odomFrame);
+                robotBoatOdomMsg.header = new HeaderMsg(0, new TimeMsg((uint)timestamp.Seconds, timestamp.NanoSeconds), rootFrame);
                 robotBoatOdomMsg.pose.pose.position = new PointMsg(pos.x, pos.y, pos.z);
                 robotBoatOdomMsg.pose.pose.orientation = robotBoat.rotation.To<FLU>();
                 robotBoatOdomMsg.twist.twist.linear = ((robotBoat.position - robotBoatPosLast) / Time.deltaTime) .To<FLU>();
@@ -139,11 +141,11 @@ public class RosBroadcastAllFrames : MonoBehaviour {
                 for(int i = 0; i < trafficBoats.Length; i++) {
                     Vector3<FLU> trafficPos = trafficBoats[i].position.To<FLU>();
 
-                    trafficBoatsPoseMsg.transforms[i].header = new HeaderMsg(0, new TimeMsg((uint)timestamp.Seconds, timestamp.NanoSeconds), odomFrame);
+                    trafficBoatsPoseMsg.transforms[i].header = new HeaderMsg(0, new TimeMsg((uint)timestamp.Seconds, timestamp.NanoSeconds), rootFrame);
                     trafficBoatsPoseMsg.transforms[i].transform.translation = new Vector3Msg(trafficPos.x, trafficPos.y, trafficPos.z);
                     trafficBoatsPoseMsg.transforms[i].transform.rotation = trafficBoats[i].rotation.To<FLU>();
 
-                    trafficBoatsOdomMsgs[i].header = new HeaderMsg(0, new TimeMsg((uint)timestamp.Seconds, timestamp.NanoSeconds), odomFrame);
+                    trafficBoatsOdomMsgs[i].header = new HeaderMsg(0, new TimeMsg((uint)timestamp.Seconds, timestamp.NanoSeconds), rootFrame);
                     trafficBoatsOdomMsgs[i].pose.pose.position = new PointMsg(trafficPos.x, trafficPos.y, trafficPos.z);
                     trafficBoatsOdomMsgs[i].pose.pose.orientation = trafficBoats[i].rotation.To<FLU>();
                     trafficBoatsOdomMsgs[i].twist.twist.linear = ((trafficBoats[i].position - trafficBoatPosLast[i]) / Time.deltaTime).To<FLU>();

@@ -1,0 +1,38 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" xmlns="UnityEngine.UIElements" editor="UnityEditor.UIElements" editor-extension-mode="False">
+    <Style src="project://database/Assets/Perception/Editor/GroundTruth/Uss/Styles.uss?fileID=7433441132597879392&amp;guid=b22b8c3ef2d8b41318cba6d20df08784&amp;type=3#Styles" />
+    <ui:VisualElement name="outer-container" class="outer-container">
+        <ui:Toggle name="auto-or-manual-toggle" text="Use Automatic Labeling" style="margin-top: 5px;" />
+        <ui:Toggle name="enable-renderer" text="Enable Renderer" style="margin-top: 5px;" />
+        <ui:VisualElement name="automatic-labeling" class="inner-container">
+            <ui:VisualElement name="drop-down-parent" />
+            <ui:VisualElement style="flex-direction: row; flex-shrink: 1; width: auto;">
+                <ui:Label name="current-auto-label-title" text="Automatic Label:" />
+                <ui:Label name="current-auto-label" style="-unity-font-style: bold; margin-left: 54px;" />
+            </ui:VisualElement>
+            <ui:Button name="add-auto-label-to-config" text="Add to Label Config..." style="margin-top: 5px; align-self: flex-end;" />
+        </ui:VisualElement>
+        <ui:VisualElement name="manual-labeling" class="inner-container" style="margin-top: 5px;">
+            <ui:Label text="Added Labels" name="added-labels-title" class="title-label" />
+            <ui:ListView name="current-labels-listview" class="labeling__label-listview" style="margin-top: 2px;" />
+            <ui:Button name="add-label" text="Add New Label" class="labeling__add-label-button" />
+            <ui:Label name="add-manual-labels-title" text="Add Labels" class="title-label" style="margin-top: 0;" />
+            <ui:VisualElement name="from-label-configs" class="inner-container depth2" style="margin-top: 0;">
+                <ui:Label text="From Existing Label Configs" class="title-label" />
+                <ui:VisualElement name="add-from-label-configs" style="padding-top: 0;">
+                    <ui:ScrollView name="label-configs-scrollview" class="labeling__label-configs-scrollview" style="min-height: 100px;" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+            <ui:VisualElement name="suggested-labels" class="inner-container depth2">
+                <ui:Label text="Other Suggested Labels" class="title-label" />
+                <ui:VisualElement name="suggested-labels-from-name" style="padding-top: 5px;">
+                    <ui:Label text="Based on asset name" class="subtitle-label" />
+                    <ui:ListView name="suggested-labels-name-listview" class="labeling__label-listview" style="min-height: 100px;" />
+                </ui:VisualElement>
+                <ui:VisualElement name="suggested-labels-from-path" style="padding-top: 5px;">
+                    <ui:Label text="Based on asset path" class="subtitle-label" />
+                    <ui:ListView name="suggested-labels-path-listview" class="labeling__label-listview" style="min-height: 100px;" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>
