@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using Unity.Robotics.ROSTCPConnector;
 
-public class rosMove : MonoBehaviour {
+public class rosMove : VehicleMovementBase {
     public bool connectOnAwake = true;
 
     // ROS Connector
@@ -14,22 +14,25 @@ public class rosMove : MonoBehaviour {
     public GameObject vehicle;
 	public Rigidbody rb;
 
-    private const string cmdVelTopic = "cmd_vel";
-    public string cmdVelTopicPrefix="";
+    public int robotNum = 0;
+    private const string cmdVelTopic = "/cmd_vel";
+    private const string robotTopicStart = "robot_";
 
     float forwardVel = 0;
     float verticalVel = 0;
     float angularVel = 0;
 
     private void Awake() {
-        if(connectOnAwake) {
+        if (connectOnAwake) {
             ConnectToCmdVel();
         }
     }
 
     public void ConnectToCmdVel() {
-        m_Ros = ROSConnection.GetOrCreateInstance();
-        m_Ros.Subscribe<TwistMsg>(cmdVelTopicPrefix + cmdVelTopic, CmdVelCallback);
+        if (m_Ros == null) {
+            m_Ros = ROSConnection.GetOrCreateInstance();
+            m_Ros.Subscribe<TwistMsg>(robotTopicStart + robotNum + cmdVelTopic, CmdVelCallback);
+        }
     }
 
 	// Use this for initialization
@@ -40,16 +43,18 @@ public class rosMove : MonoBehaviour {
 
     // Use ROS Twist message inputs to move the robot
 	void FixedUpdate () {
-        float leftPropeller = (angularVel + forwardVel) / 2f;
-        float rightPropeller = forwardVel - leftPropeller;
+        if (_movementActive) {
+            float leftPropeller = (angularVel + forwardVel) / 2f;
+            float rightPropeller = forwardVel - leftPropeller;
 
-		Vector3 movement = new Vector3 (0, verticalVel, forwardVel);
-        rb.AddRelativeForce (movement * 0.5f);
-		rb.AddRelativeTorque(transform.up * angularVel * 0.005f);
+            Vector3 movement = new Vector3(0, verticalVel, forwardVel);
+            rb.AddRelativeForce(movement * 0.5f);
+            rb.AddRelativeTorque(transform.up * angularVel * 0.005f);
 
-		if(transform.position.y > 0) {
-			transform.position = new Vector3(transform.position.x, 0, transform.position.z);
-		}
+            if (transform.position.y > 0) {
+                transform.position = new Vector3(transform.position.x, 0, transform.position.z);
+            }
+        }
 	}
 
     public void CmdVelCallback(TwistMsg msg) {
@@ -58,4 +63,11 @@ public class rosMove : MonoBehaviour {
         verticalVel = (float) msg.linear.z;
         angularVel = (float) -msg.angular.z;
     }
+
+    public override void SetRosId(int id) {
+        robotNum = id;
+        ConnectToCmdVel();
+    }
+
+    public override string DisplayedName { get { return "cmd_vel"; } }
 }

@@ -7,6 +7,7 @@ using Unity.Robotics.Core;
 using Unity.Robotics.ROSTCPConnector;
 using Unity.Robotics.ROSTCPConnector.ROSGeometry;
 using RosMessageTypes.Nav;
+using System.Collections.Generic;
 
 public class RosBroadcastAllFrames : MonoBehaviour {
     // ROS Connector
@@ -17,19 +18,20 @@ public class RosBroadcastAllFrames : MonoBehaviour {
     private bool haveTrafficBoats = false;
 
     public Transform robotBoat;
-    public Transform[] trafficBoats;
+    public List<Transform> trafficBoats = new List<Transform>();
 
     private TFMessageMsg robotBoatPoseMsg = new TFMessageMsg(new TransformStampedMsg[2]);
     private TFMessageMsg trafficBoatsPoseMsg;
+    private List<TransformStampedMsg> trafficBoatTransformMsgs = new List<TransformStampedMsg>();
 
     private OdometryMsg robotBoatOdomMsg = new OdometryMsg();
-    private OdometryMsg[] trafficBoatsOdomMsgs;
+    private List<OdometryMsg> trafficBoatsOdomMsgs = new List<OdometryMsg>();
 
     private Vector3 robotBoatPosLast = Vector3.zero;
-    private Vector3[] trafficBoatPosLast;
+    private List<Vector3> trafficBoatPosLast = new List<Vector3>();
 
     private Quaternion robotBoatRotLast = Quaternion.identity;
-    private Quaternion[] trafficBoatRotLast;
+    private List<Quaternion> trafficBoatRotLast = new List<Quaternion>();
 
     private const string tfTopic = "tf";
     private const string odomFrame = "odom";
@@ -76,37 +78,42 @@ public class RosBroadcastAllFrames : MonoBehaviour {
                 robotBoatRotLast = robotBoat.rotation;
             }
 
-            if(trafficBoats != null && trafficBoats.Length > 0) {
-                haveTrafficBoats = true;
-                trafficBoatsPoseMsg = new TFMessageMsg(new TransformStampedMsg[trafficBoats.Length]);
-                trafficBoatsOdomMsgs = new OdometryMsg[trafficBoats.Length];
-                trafficBoatPosLast = new Vector3[trafficBoats.Length];
-                trafficBoatRotLast = new Quaternion[trafficBoats.Length];
-
-                for(int i = 0; i < trafficBoats.Length; i++) {
-                    HeaderMsg header = new HeaderMsg(0, new TimeMsg((uint)timestamp.Seconds, timestamp.NanoSeconds), rootFrame);
-                    Vector3<FLU> trafficPos = trafficBoats[i].position.To<FLU>();
-                    TransformMsg trans = new TransformMsg(
-                        new Vector3Msg(trafficPos.x, trafficPos.y, trafficPos.z),
-                        trafficBoats[i].rotation.To<FLU>()
-                    );
-                    trafficBoatsPoseMsg.transforms[i] = new TransformStampedMsg(header, robotFrame + "_" + (i+1) + "/" + odomFrame, trans);
-
-                    trafficBoatsOdomMsgs[i] = new OdometryMsg();
-                    trafficBoatsOdomMsgs[i].header = header;
-                    trafficBoatsOdomMsgs[i].child_frame_id = robotFrame + "_" + (i + 1);
-                    trafficBoatsOdomMsgs[i].pose = new PoseWithCovarianceMsg(new PoseMsg(new PointMsg(trafficPos.x, trafficPos.y, trafficPos.z), trafficBoats[i].rotation.To<FLU>()), new double[36]);
-                    trafficBoatsOdomMsgs[i].twist = new TwistWithCovarianceMsg(new TwistMsg(Vector3.zero.To<FLU>(), Vector3.zero.To<FLU>()), new double[36]);
-                    m_Ros.RegisterPublisher<OdometryMsg>(robotFrame + "_" + (i+1) + "/" + odomFrame);
-                    m_Ros.Publish(robotFrame + "_" + (i+1) + "/" + odomFrame,trafficBoatsOdomMsgs[i]);
-
-                    trafficBoatPosLast[i] = trafficBoats[i].position;
-                    trafficBoatRotLast[i] = trafficBoats[i].rotation;
+            if (trafficBoats != null && trafficBoats.Count > 0) {
+                for (int i = 0; i < trafficBoats.Count; i++) {
+                    AddTrafficBoat(trafficBoats[i], i + 1, true);
                 }
-                // Finally send the message to server_endpoint.py running in ROS
-                m_Ros.Publish(tfTopic, trafficBoatsPoseMsg);
             }
         }
+    }
+
+    public void AddTrafficBoat(Transform newBoat, int id, bool alreadyInList=false) {
+        haveTrafficBoats = true;
+        if (!alreadyInList) {
+            trafficBoats.Add(newBoat);
+        }
+
+        var timestamp = new TimeStamp(Clock.time);
+        HeaderMsg header = new HeaderMsg(0, new TimeMsg((uint)timestamp.Seconds, timestamp.NanoSeconds), rootFrame);
+        Vector3<FLU> trafficPos = newBoat.position.To<FLU>();
+        TransformMsg trans = new TransformMsg(
+            new Vector3Msg(trafficPos.x, trafficPos.y, trafficPos.z),
+            newBoat.rotation.To<FLU>()
+        );
+        trafficBoatTransformMsgs.Add(new TransformStampedMsg(header, robotFrame + "_" + id + "/" + odomFrame, trans));
+        trafficBoatsPoseMsg = new TFMessageMsg(trafficBoatTransformMsgs.ToArray());
+        m_Ros.Publish(tfTopic, trafficBoatsPoseMsg);
+
+        OdometryMsg odomMsg = new OdometryMsg();
+        odomMsg.header = header;
+        odomMsg.child_frame_id = robotFrame + "_" + id;
+        odomMsg.pose = new PoseWithCovarianceMsg(new PoseMsg(new PointMsg(trafficPos.x, trafficPos.y, trafficPos.z), newBoat.rotation.To<FLU>()), new double[36]);
+        odomMsg.twist = new TwistWithCovarianceMsg(new TwistMsg(Vector3.zero.To<FLU>(), Vector3.zero.To<FLU>()), new double[36]);
+        m_Ros.RegisterPublisher<OdometryMsg>(robotFrame + "_" + id + "/" + odomFrame);
+        m_Ros.Publish(robotFrame + "_" + id + "/" + odomFrame, odomMsg);
+        trafficBoatsOdomMsgs.Add(odomMsg);
+
+        trafficBoatPosLast.Add(newBoat.position);
+        trafficBoatRotLast.Add(newBoat.rotation);
     }
 
     private void Update() {
@@ -138,7 +145,7 @@ public class RosBroadcastAllFrames : MonoBehaviour {
             }
 
             if(haveTrafficBoats) {
-                for(int i = 0; i < trafficBoats.Length; i++) {
+                for(int i = 0; i < trafficBoats.Count; i++) {
                     Vector3<FLU> trafficPos = trafficBoats[i].position.To<FLU>();
 
                     trafficBoatsPoseMsg.transforms[i].header = new HeaderMsg(0, new TimeMsg((uint)timestamp.Seconds, timestamp.NanoSeconds), rootFrame);

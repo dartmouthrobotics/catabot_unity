@@ -1,21 +1,28 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Perception.GroundTruth.LabelManagement;
 
 public class TerrainFromElevationImage : MonoBehaviour {
+    public bool generateTerrainOnStart = false;
     public string pathToImageFile = "C:\\Users\\dinit\\Downloads\\New York River Elevation.png";
     public float distanceBetweenPixels = 1f;
     public float minAltitude = -10f;
     public float maxAltitude = 20f;
 
-    private Terrain[] terrains;
+    private GameObject generatedWorld;
+    private TerrainData terrainData;
 
     private void Start() {
-        CreateTerrainsFromImage(pathToImageFile);
+        if (generateTerrainOnStart) {
+            GenerateTerrainFromImage(pathToImageFile);
+        }
     }
 
-    private void CreateTerrainsFromImage(string imageFilePath) {
-        byte[] imageBytes = System.IO.File.ReadAllBytes(pathToImageFile);
+    public void GenerateTerrainFromImage(string imageFilePath) {
+        DestroyTerrainFromImage();
+
+        byte[] imageBytes = System.IO.File.ReadAllBytes(imageFilePath);
         Texture2D elevationTexture = new Texture2D(2, 2);
         elevationTexture.LoadImage(imageBytes);
         print("(" + elevationTexture.width + ", " + elevationTexture.height + ")");
@@ -29,7 +36,7 @@ public class TerrainFromElevationImage : MonoBehaviour {
 
         print("Heights all set");
 
-        TerrainData terrainData = new TerrainData();
+        terrainData = new TerrainData();
         print("Terrain data made");
         terrainData.heightmapResolution = 4097;
         print("Set the resolution");
@@ -37,8 +44,23 @@ public class TerrainFromElevationImage : MonoBehaviour {
         print("Set the heights");
         terrainData.size = new Vector3(distanceBetweenPixels * 4096f, maxAltitude - minAltitude, distanceBetweenPixels * 4096f);
         print("Set the size");
-        GameObject terrain = Terrain.CreateTerrainGameObject(terrainData);
+        generatedWorld = Terrain.CreateTerrainGameObject(terrainData);
         print("Created the terrain object");
-        terrain.transform.position = new Vector3(0, minAltitude, 0);
+        generatedWorld.transform.position = new Vector3(0, minAltitude, 0);
+        Labeling labeler = generatedWorld.AddComponent<Labeling>();
+        labeler.labels.Add("Terrain");
+    }
+
+    public void UpdateSize() {
+        if (terrainData != null) {
+            terrainData.size = new Vector3(distanceBetweenPixels * 4096f, maxAltitude - minAltitude, distanceBetweenPixels * 4096f);
+            generatedWorld.transform.position = new Vector3(0, minAltitude, 0);
+        }
+    }
+
+    public void DestroyTerrainFromImage() {
+        if (generatedWorld != null) {
+            Destroy(generatedWorld);
+        }
     }
 }

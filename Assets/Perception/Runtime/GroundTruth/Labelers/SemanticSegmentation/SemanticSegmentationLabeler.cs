@@ -214,20 +214,22 @@ namespace UnityEngine.Perception.GroundTruth.Labelers
             SceneHierarchyInformation hierarchyInfo
         )
         {
-            var labeledObjectColors = m_LabeledObjectColors[frame];
-            m_LabeledObjectColors.Remove(frame);
+            if (enabled) {
+                var labeledObjectColors = m_LabeledObjectColors[frame];
+                m_LabeledObjectColors.Remove(frame);
 
-            // Create a set of all the colors present in the semantic segmentation image.
-            var colorSet = new HashSet<Color32>();
-            foreach (var objectInfos in renderedObjectInfos)
-                colorSet.Add(labeledObjectColors[(int)objectInfos.instanceIndex]);
-            labeledObjectColors.Dispose();
+                // Create a set of all the colors present in the semantic segmentation image.
+                var colorSet = new HashSet<Color32>();
+                foreach (var objectInfos in renderedObjectInfos)
+                    colorSet.Add(labeledObjectColors[(int)objectInfos.instanceIndex]);
+                labeledObjectColors.Dispose();
 
-            // Report only the colors that are present within the current segmentation image.
-            m_PendingEntries[frame] = m_AnnotationDefinition.spec.Where(
-                entry => colorSet.Contains(entry.pixelValue)).ToList();
+                // Report only the colors that are present within the current segmentation image.
+                m_PendingEntries[frame] = m_AnnotationDefinition.spec.Where(
+                    entry => colorSet.Contains(entry.pixelValue)).ToList();
 
-            ReportFrameIfReady(frame);
+                ReportFrameIfReady(frame);
+            }
         }
 
         void ReportFrameIfReady(int frame)

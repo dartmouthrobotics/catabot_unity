@@ -84,6 +84,7 @@ namespace UnityEngine.Perception.GroundTruth
         /// Whether camera output should be captured to disk.
         /// </summary>
         public bool captureRgbImages = true;
+        private RGBChannel rgbChannel = null;
 
         /// <summary>
         /// The image encoding format used to encode captured RGB images.
@@ -368,6 +369,11 @@ namespace UnityEngine.Perception.GroundTruth
             attachedCamera = GetComponent<Camera>();
             cameraSensor.Setup(this);
             Application.runInBackground = true;
+
+            rgbChannel = EnableChannel<RGBChannel>();
+            Debug.Log("RGB Channel: " + rgbChannel);
+            if (captureRgbImages)
+                rgbChannel.outputTextureReadback += OnRGBTextureOutputTextureReadback;
         }
 
         static void CheckHdrp()
@@ -382,10 +388,6 @@ namespace UnityEngine.Perception.GroundTruth
 
         void Start()
         {
-            var channel = EnableChannel<RGBChannel>();
-            if (captureRgbImages)
-                channel.outputTextureReadback += OnRGBTextureOutputTextureReadback;
-
             SetupVisualizationCamera();
             DatasetCapture.SimulationEnding += OnSimulationEnding;
         }
@@ -732,6 +734,18 @@ namespace UnityEngine.Perception.GroundTruth
             if (visualizedPerceptionCamera == this)
             {
                 visualizedPerceptionCamera = null;
+            }
+        }
+
+        public bool CaptureRgbImages {
+            set {
+                captureRgbImages = value;
+                Debug.Log("RGB Channel: " + rgbChannel);
+                if (value) {
+                    rgbChannel.outputTextureReadback += OnRGBTextureOutputTextureReadback;
+                } else {
+                    rgbChannel.outputTextureReadback -= OnRGBTextureOutputTextureReadback;
+                }
             }
         }
     }

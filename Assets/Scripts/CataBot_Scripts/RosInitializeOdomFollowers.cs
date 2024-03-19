@@ -23,7 +23,7 @@ public class RosInitializeOdomFollowers : MonoBehaviour {
 
             // Always instantiate the robot in addition to however many boats there are
             for(int i = 0; i < numBoats+1; i++) {
-                Instantiate<GameObject>(i < 1 ? robotOdomFollowerPrefab : boatOdomFollowerPrefab).GetComponent<RosPosFromOdom>().ConnectToRobotOdom(i);
+                Instantiate<GameObject>(i < 1 ? robotOdomFollowerPrefab : boatOdomFollowerPrefab).GetComponent<RosPositionFromPose>().ConnectToRobotOdom(i);
             }
         }
     }
