@@ -4,10 +4,11 @@
 
 # Setup Instructions
 
-1. Download the project and extract if needed
-2. Open the project in Unity. We used editor version `2022.3.12f1`, but later versions of Unity may work as well.
-3. If you want to use ROS and are on Linux, ![install the Unity ROS packages](https://github.com/Unity-Technologies/Unity-Robotics-Hub/blob/main/tutorials/ros_unity_integration/setup.md)
-4. Current demo scene is located at `Assets/Scenes/3DAttributes.unity`
+1. Make sure Git has been installed beforehand. You may need to restart your computer.
+2. Download the project and extract if needed
+3. Open the project in Unity. We used editor version `2022.3.12f1`, but later versions of Unity may work as well.
+4. If you want to use ROS and are on Linux, ![install the Unity ROS packages](https://github.com/Unity-Technologies/Unity-Robotics-Hub/blob/main/tutorials/ros_unity_integration/setup.md)
+5. Current demo scene is located at `Assets/Scenes/3DAttributes.unity`
 
 # Features
 ![Generate terrain from elevation images](docs/TerrainGenerationTrioPictures.png)
