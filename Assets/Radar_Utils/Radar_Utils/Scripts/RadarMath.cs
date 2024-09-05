@@ -11,9 +11,10 @@ public class RadarMath
         return new Vector3(Mathf.Cos(angleRad), Mathf.Sin(angleRad));
     }
 
-    public static Vector3 GetRadarVectorFromAngle(float angle) {
-        float angleRad = angle * (Mathf.PI / 180f);
-        return new Vector3(Mathf.Cos(angleRad), 0, Mathf.Sin(angleRad));
+    public static Vector3 GetRadarVectorFromAngle(float angleH, float angleV) {
+        float angleRadH = angleH * (Mathf.PI / 180f);
+        float angleRadV = angleV * (Mathf.PI / 180f);
+        return new Vector3(Mathf.Cos(angleRadH), Mathf.Sin(angleRadV), Mathf.Sin(angleRadH));
     }
 
     public static float NextGaussian()

@@ -9,6 +9,7 @@ using Unity.Robotics.Core;
 using Unity.Robotics.ROSTCPConnector;
 using Unity.Robotics.ROSTCPConnector.ROSGeometry;
 
+//[RequireComponent(typeof(ParticleSystem))]
 public class Radar : MonoBehaviour
 {
     ROSConnection m_Ros;
@@ -16,6 +17,13 @@ public class Radar : MonoBehaviour
     public bool broadcastROSMessages = true;
     private bool _lidarActive = true;
     private bool _radarActive = true;
+
+    public Transform LidarOrigin = null;
+    public Transform RadarOrigin = null;
+
+    public ParticleSystem LidarVisualization = null;
+    private ParticleSystem.Particle[] lidarPoints = new ParticleSystem.Particle[numDegreesCircle * numDegreesVertical];
+    public bool LidarShowRainHits = false;
 
     public RectTransform sweepTransform;
     private float rotationSpeed;
@@ -30,11 +38,19 @@ public class Radar : MonoBehaviour
     float unityToMathAngle = 0;
     private float beamAngle = 0;
 
-    private RectTransform[] lidarDots = new RectTransform[360];
-    public RectTransform lidarDotPrefab;
+    public enum HorizontalResolution { _32 = 0, _64 = 1, _128 = 2 }
+    public HorizontalResolution HorzResolution = HorizontalResolution._32;
+    private int[] numSamplesCircle = { 512, 1024, 2048 };
+    private const int numDegreesHalfCircle = numDegreesCircle / 2;
+    private const int numDegreesAboveCenter = 5;
+    private const int numDegreesVertical = 2 * numDegreesAboveCenter + 1;
+
     private RaycastHit lidarHit;
     private float lidarRange;
-    private float[] lidarRanges = new float[360];
+    private float[,] lidarRanges = new float[numDegreesCircle, numDegreesVertical];
+    private float[,] lidarIntensities = new float[numDegreesCircle, numDegreesVertical]; // Will never be filled. Just for ROS messages.
+    private RectTransform[,] lidarDots = new RectTransform[numDegreesCircle, numDegreesVertical];
+    public RectTransform lidarDotPrefab;
 
     private LaserScanMsg laserScanMsg = new LaserScanMsg();
 
@@ -48,7 +64,6 @@ public class Radar : MonoBehaviour
     public float rateOfRainfall = 0f; // Units of mm / hr
 
     void Awake() {
-
         //sweepTransform = transform.Find("Sweep");
         rotationSpeed = 180f;
         radarGraphicRange = 525f;
@@ -56,9 +71,11 @@ public class Radar : MonoBehaviour
         radarRange = 250f;
         lidarRange = 50f;
         colliderList = new List<Collider>();
-        for(int i = 0; i < 360; i++) {
-            lidarDots[i] = Instantiate<RectTransform>(lidarDotPrefab, sweepTransform.parent);
-            lidarDots[i].gameObject.SetActive(false);
+        for(int i = 0; i < numDegreesCircle; i++) {
+            for (int j = 0; j < numDegreesVertical; j++) {
+                lidarDots[i,j] = Instantiate<RectTransform>(lidarDotPrefab, sweepTransform.parent);
+                lidarDots[i,j].gameObject.SetActive(false);
+            }
         }
 
         if(broadcastROSMessages) {
@@ -75,7 +92,7 @@ public class Radar : MonoBehaviour
     // Update is called once per frame
     void Update() {
         // Get the robot's rotation in the standard mathematical coordinate system
-        unityToMathAngle = 360f - nfmod(transform.rotation.eulerAngles.y, 360);
+        unityToMathAngle = (float)numDegreesCircle - nfmod(transform.rotation.eulerAngles.y, numDegreesCircle);
 
         // Update the orientation of the radar circle
         sweepTransform.parent.localRotation = Quaternion.Euler(0, 0, transform.rotation.eulerAngles.y);
@@ -94,27 +111,28 @@ public class Radar : MonoBehaviour
             var timestamp = new TimeStamp(Clock.time);
 
             if (_lidarActive) {
-                var msg = new LaserScanMsg {
-                    header = new HeaderMsg {
-                        frame_id = baseScanFrame,
-                        stamp = new TimeMsg {
-                            sec = (uint)timestamp.Seconds,
-                            nanosec = timestamp.NanoSeconds,
-                        }
-                    },
-                    range_min = 0,
-                    range_max = lidarRange,
-                    angle_min = -Mathf.PI,
-                    angle_max = Mathf.PI,
-                    angle_increment = (Mathf.PI - -Mathf.PI) / 360f,
-                    time_increment = 0.01f,
-                    scan_time = 0.1f,
-                    intensities = new float[lidarRanges.Length],
-                    ranges = lidarRanges,
-                    //angles = angles.ToArray();
-                };
+                // TODO: Convert to a PointCloud2 Message!
+                //var msg = new LaserScanMsg {
+                //    header = new HeaderMsg {
+                //        frame_id = baseScanFrame,
+                //        stamp = new TimeMsg {
+                //            sec = (uint)timestamp.Seconds,
+                //            nanosec = timestamp.NanoSeconds,
+                //        }
+                //    },
+                //    range_min = 0,
+                //    range_max = lidarRange,
+                //    angle_min = -Mathf.PI,
+                //    angle_max = Mathf.PI,
+                //    angle_increment = (Mathf.PI - -Mathf.PI) / (float)numDegreesCircle,
+                //    time_increment = 0.01f,
+                //    scan_time = 0.1f,
+                //    intensities = lidarIntensities,
+                //    ranges = lidarRanges,
+                //    //angles = angles.ToArray();
+                //};
 
-                m_Ros.Publish(scanTopic, msg);
+                //m_Ros.Publish(scanTopic, msg);
             }
         }
     }
@@ -125,9 +143,9 @@ public class Radar : MonoBehaviour
 
     private void RadarRaycast() {
         // Update the angle of the spinning radar beam
-        float previousRotation = beamAngle - 180f;
-        beamAngle = nfmod((beamAngle - (rotationSpeed * Time.deltaTime)), 360f);
-        if (previousRotation < 0 && (beamAngle - 180f) >= 0) {
+        float previousRotation = beamAngle - (float)numDegreesHalfCircle;
+        beamAngle = nfmod((beamAngle - (rotationSpeed * Time.deltaTime)), numDegreesCircle);
+        if (previousRotation < 0 && (beamAngle - (float)numDegreesHalfCircle) >= 0) {
             //print("CLEAR");
             colliderList.Clear();
         }
@@ -138,10 +156,10 @@ public class Radar : MonoBehaviour
 
         // Detect if anything is in the radar beam
         RaycastHit raycastHit;
-        Vector3 radarDirection = RadarMath.GetRadarVectorFromAngle(unityToMathAngle + beamAngle);
+        Vector3 radarDirection = RadarMath.GetRadarVectorFromAngle(unityToMathAngle + beamAngle, 0);
         // print((unityToMathAngle + beamAngle) + " | " + radarDirection);
         //Debug.DrawRay(transform.position, radarDirection.normalized * radarRange, Color.green);
-        if (Physics.Raycast(transform.position, radarDirection, out raycastHit, radarRange)) {
+        if (Physics.Raycast(RadarOrigin.position, radarDirection, out raycastHit, radarRange)) {
             //print(radarDirection);
             //print(raycastHit.transform.name);
             colliderList.Add(raycastHit.collider);
@@ -179,36 +197,56 @@ public class Radar : MonoBehaviour
     {
         float dropDistribution = LidarMath.DropSizeDistribution(rateOfRainfall);
         float beamVolumeOneMeter = Mathf.PI * Mathf.Pow(beamRadius, 2f);
-        for (int i = 0; i < 360; i++){
-            Vector3 radarDirection = RadarMath.GetRadarVectorFromAngle(unityToMathAngle + (float) i);
-            bool hitObject = Physics.Raycast(transform.position, radarDirection, out lidarHit, lidarRange);
-            float distance = LidarMath.CalculateLidarDistanceWithRain(lidarHit.distance, hitObject, dropDistribution, beamVolumeOneMeter);
-            if (distance > 0) {
-                float noisyDistance = distance + RadarMath.GaussianMath(mu, sigma);
-                Debug.DrawRay(transform.position, radarDirection * noisyDistance, distance == lidarHit.distance ? Color.green : Color.red, 0.01f);
-                lidarDots[i].gameObject.SetActive(true);
-                Vector3 direction = RadarMath.GetVectorFromAngle(unityToMathAngle + (float) i).normalized;
-                lidarDots[i].anchoredPosition = direction * ((noisyDistance + RadarMath.GaussianMath(mu, sigma)) * radarGraphicRadius / radarGraphicRange);
-                lidarRanges[(i + 180) % 360] = noisyDistance;
-            } else {
-                lidarDots[i].gameObject.SetActive(false);
-                lidarRanges[(i + 180) % 360] = 0;
+        bool printFirstPoint = true;
+        for (int i = 0; i < numDegreesCircle; i++){
+            for (int j = 0; j < numDegreesVertical; j++) {
+                Vector3 lidarDirection = RadarMath.GetRadarVectorFromAngle(unityToMathAngle + (float)i, (float)(j - numDegreesAboveCenter));
+                bool hitObject = Physics.Raycast(LidarOrigin.position, lidarDirection, out lidarHit, lidarRange);
+                float distance = LidarMath.CalculateLidarDistanceWithRain(lidarHit.distance, hitObject, dropDistribution, beamVolumeOneMeter);
+                if (distance > 0) {
+                    float noisyDistance = distance + RadarMath.GaussianMath(mu, sigma);
+                    //Debug.DrawRay(LidarOrigin.position, radarDirection * noisyDistance, distance == lidarHit.distance ? Color.green : Color.red, 0.01f);
+                    lidarPoints[i * numDegreesVertical + j].position = LidarOrigin.position + lidarDirection * noisyDistance;
+                    if (LidarShowRainHits) {
+                        lidarPoints[i * numDegreesVertical + j].startColor = distance == lidarHit.distance ? Color.green : Color.red;
+                    } else {
+                        lidarPoints[i * numDegreesVertical + j].startColor = Color.HSVToRGB(noisyDistance / lidarRange, 1, 1);
+                    }
+                    lidarPoints[i * numDegreesVertical + j].startSize = noisyDistance / lidarRange;
+                    if(printFirstPoint) {
+                        Debug.Log(LidarOrigin.position + ", " + lidarPoints[i * numDegreesVertical + j].position);
+                        printFirstPoint = false;
+                    }
+                    lidarDots[i,j].gameObject.SetActive(true);
+                    Vector3 minimapDirection = RadarMath.GetVectorFromAngle(unityToMathAngle + (float)i).normalized;
+                    lidarDots[i,j].anchoredPosition = minimapDirection * ((noisyDistance + RadarMath.GaussianMath(mu, sigma)) * radarGraphicRadius / radarGraphicRange);
+                    lidarRanges[(i + numDegreesHalfCircle) % numDegreesCircle, j] = noisyDistance;
+                } else {
+                    lidarDots[i, j].gameObject.SetActive(false);
+                    lidarRanges[(i + numDegreesHalfCircle) % numDegreesCircle, j] = 0;
+                    lidarPoints[i * numDegreesVertical + j].position = Vector3.zero;
+                    lidarPoints[i * numDegreesVertical + j].startSize = 0f;
+                }
             }
         }
+
+        LidarVisualization.SetParticles(lidarPoints, lidarPoints.Length);
     }
 
     public bool LidarActive { set {
             _lidarActive = value;
             if (!value) { // Disable all the visual dots if Lidar is disabled
-                for (int i = 0; i < 360; i++) {
-                    lidarDots[i].gameObject.SetActive(false);
-                    lidarRanges[(i + 180) % 360] = 0;
+                for (int i = 0; i < numDegreesCircle; i++) {
+                    for (int j = 0; j < numDegreesVertical; j++) {
+                        lidarDots[i, j].gameObject.SetActive(false);
+                        lidarRanges[i, j] = 0;
+                    }
                 }
             }
-        } }
+    } }
 
     public bool RadarActive { set {
             _radarActive = value;
             sweepTransform.gameObject.SetActive(value);
-        } }
+    } }
 }
