@@ -18,7 +18,7 @@
 * Accurate water, wind, and rain simulation
 * Simulation of maritime traffic
 
-![Lidar Radar Minimap](docs/RadarLidarExample.png)
+![Lidar Radar Minimap](docs/RainLidarMultiIntensity.png)
 * Accurate simulation of multiple sensors (LiDAR, radar, IMU, GPS)
 ![Perception examples](docs/PerceptionCombo.png)
 * Ground truth perception packages (Color, Segmentation, Depth, Normal, Bounding Boxes, etc)
