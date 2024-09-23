@@ -14,11 +14,11 @@
 ![Generate terrain from elevation images](docs/TerrainGenerationTrioPictures.png)
 * Fully customizable 3D environments
 * Generate terrain from elevation images
-![Rain intensities](docs/RainMultiIntensity3.png)
+![Rain intensities](docs/RainLidarMultiIntensity.png)
 * Accurate water, wind, and rain simulation
 * Simulation of maritime traffic
 
-![Lidar Radar Minimap](docs/RainLidarMultiIntensity.png)
+![Lidar Radar Minimap](docs/RadarLidarExample.png)
 * Accurate simulation of multiple sensors (LiDAR, radar, IMU, GPS)
 ![Perception examples](docs/PerceptionCombo.png)
 * Ground truth perception packages (Color, Segmentation, Depth, Normal, Bounding Boxes, etc)
