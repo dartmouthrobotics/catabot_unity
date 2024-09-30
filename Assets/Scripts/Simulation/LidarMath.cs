@@ -1,7 +1,7 @@
 using UnityEngine;
 public class LidarMath
 {
-    public static float MaxLidarDistance = 10f;
+    public static float MaxLidarDistance = 50f;
 
     float lambda = 0.2f;
 
@@ -11,6 +11,8 @@ public class LidarMath
 
     static float dropSizeMin = 0.5f;
     static float dropSizeMax = 6;
+
+    static float dropSizeDistributionRightHalf = -4.1f * ((dropSizeMax - dropSizeMin) / 2f);
 
     static float extinctionEfficiency = 2;
     static float backscatterEfficiency = 2;
@@ -58,14 +60,18 @@ public class LidarMath
     /// <returns></returns>
     public static float DropSizeDistribution(float rate = 2)
     {
-
-        float numDrops = 8000 * Mathf.Exp(-4.1f * Mathf.Pow(rate, -0.21f) * ((dropSizeMax - dropSizeMin) / 2f));
-        return numDrops;
+        return 8000f * Mathf.Exp(dropSizeDistributionRightHalf * Mathf.Pow(rate, -0.21f));
+        //float numDrops = 8000f * Mathf.Exp(-4.1f * Mathf.Pow(rate, -0.21f) * ((dropSizeMax - dropSizeMin) / 2f));
+        //return numDrops;
     }
 
     public static float ProbNumRaindrops(float avgNumDrops, int numDrops)
     {
-        return Mathf.Exp(-avgNumDrops) * (Mathf.Pow(avgNumDrops, (float) numDrops) / (float) Factorial(numDrops));
+        if (avgNumDrops == 0) {
+            return 0;
+        } else {
+            return Mathf.Exp(-avgNumDrops) * (Mathf.Pow(avgNumDrops, (float)numDrops) / (float)Factorial(numDrops));
+        }
     }
 
     public static float RelativePower(float distance, float backscatterCoefficient, float scatteringCoefficient) {
@@ -83,12 +89,14 @@ public class LidarMath
         return smallestVal;
     }
 
+    // At a max range of 50 meters,
+    //      no need to call ProbNumRaindrops unless the rateOfRain is greater than 193 mm/hr
+    // At a max rateOfRain of 50 mm/hr,
+    //      no need to call ProbNumRaindrops unless the distance is greater than 169 m
     public static float CalculateLidarDistanceWithRain(float distance, bool hit, float dropDistribution, float beamVolumeOneMeter) {
         if(hit) { // Lidar actually hit something (assuming the rain doesn't get in the way)
             float avgNumDrops = dropDistribution * beamVolumeOneMeter * distance;
             int numRaindrops = (ProbNumRaindrops(avgNumDrops, (int)Mathf.Floor(avgNumDrops)) > ProbNumRaindrops(avgNumDrops, (int)Mathf.Ceil(avgNumDrops))) ? (int)Mathf.Floor(avgNumDrops) : (int)Mathf.Ceil(avgNumDrops);
-            //Debug.Log("AvgNumDrops: " + avgNumDrops);
-            //Debug.Log("Num Drops: " + numRaindrops);
 
             if (numRaindrops < 1) {
                 return distance;
@@ -110,13 +118,10 @@ public class LidarMath
         } else { // Lidar did not hit something within the max distance
             float avgNumDrops = dropDistribution * beamVolumeOneMeter * MaxLidarDistance;
             int numRaindrops = (ProbNumRaindrops(avgNumDrops, (int)Mathf.Floor(avgNumDrops)) > ProbNumRaindrops(avgNumDrops, (int)Mathf.Ceil(avgNumDrops))) ? (int)Mathf.Floor(avgNumDrops) : (int)Mathf.Ceil(avgNumDrops);
-            //Debug.Log("AvgNumDrops: " + avgNumDrops);
-            //Debug.Log("Num Drops: " + numRaindrops);
             float coefficientBase = numRaindrops / beamVolumeOneMeter;
             float rainDistance = MaxLidarDistance * MinRandomValue(numRaindrops);
             float rainBackscatterCoefficient = coefficientBase * backscatterCrossSectionMean / rainDistance;
             float RIRD = RelativePower(rainDistance, rainBackscatterCoefficient, 0);
-            //Debug.Log("RIRD: " + RIRD);
             return RIRD > threshold ? rainDistance : 0;
         }
     }

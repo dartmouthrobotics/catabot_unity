@@ -1378,7 +1378,7 @@ MonoBehaviour:
     m_BarrelClipping: 0.25
     m_Anamorphism: 0
   flipYMode: 0
-  xrRendering: 1
+  xrRendering: 0
   fullscreenPassthrough: 0
   allowDynamicResolution: 0
   customRenderingSettings: 0
@@ -2311,9 +2311,12 @@ MonoBehaviour:
   LidarOrigin: {fileID: 1386300038492920449}
   RadarOrigin: {fileID: 1386300038492920449}
   LidarVisualization: {fileID: 0}
+  LidarShowRainHits: 0
   sweepTransform: {fileID: 0}
   radarDot: {fileID: 8269650371191618296, guid: ebff06dbfcfddf04fb0c3d51914744cf,
     type: 3}
+  HorzResolution: 512
+  VertResolution: 32
   lidarDotPrefab: {fileID: 8269650371191618296, guid: 865c7aac55fd0a2dbb5aa90a47a313d3,
     type: 3}
   beamRadius: 0.2
