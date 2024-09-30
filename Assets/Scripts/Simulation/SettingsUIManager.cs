@@ -13,7 +13,10 @@ public class SettingsUIManager : MonoBehaviour
 
     [Header("Objects being modified")]
     [SerializeField]
-    private Radar _radarLidarController;
+    private Radar _radarController;
+
+    [SerializeField]
+    private LidarPerception _lidarController;
 
     [SerializeField]
     private IMUController _imuController;
@@ -29,6 +32,11 @@ public class SettingsUIManager : MonoBehaviour
 
     [SerializeField]
     private PerceptionCamera _perception;
+    bool _saveScreenshots;
+    bool _saveColor;
+    bool _saveSegment;
+    bool _saveDepth;
+    bool _saveNormal;
 
     private CameraLabeler _depthLabeler;
     private CameraLabeler _normalLabeler;
@@ -148,11 +156,11 @@ public class SettingsUIManager : MonoBehaviour
                 _imuToggle.isOn = settingsConfig.imuActive;
                 _minimapToggle.isOn = settingsConfig.minimapActive;
                 _rainInput.text = settingsConfig.rainIntensity.ToString("F2");
-                _saveScreenshotsToggle.isOn = settingsConfig.screenshotsSaveToFile;
                 _colorToggle.isOn = settingsConfig.screenshotsColorActive;
                 _segmentToggle.isOn = settingsConfig.screenshotsSegmentationActive;
                 _depthToggle.isOn = settingsConfig.screenshotsDepthActive;
                 _normalToggle.isOn = settingsConfig.screenshotsNormalActive;
+                _saveScreenshotsToggle.isOn = settingsConfig.screenshotsSaveToFile;
 
                 _robotMovementInput.value = 0;
                 string[] names = _robotMovementManager.MovementNames();
@@ -198,14 +206,14 @@ public class SettingsUIManager : MonoBehaviour
     }
 
     public void OnRadarToggleChange(bool value) {
-        if (_radarLidarController != null) {
-            _radarLidarController.RadarActive = value;
+        if (_radarController != null) {
+            _radarController.RadarActive = value;
         }
     }
 
     public void OnLidarToggleChange(bool value) {
-        if (_radarLidarController != null) {
-            _radarLidarController.LidarActive = value;
+        if (_lidarController != null) {
+            _lidarController.LidarActive = value;
         }
     }
 
@@ -230,7 +238,7 @@ public class SettingsUIManager : MonoBehaviour
         float rateOfRainfall;
         if (float.TryParse(value, out rateOfRainfall)) {
             float clampedRain = Mathf.Clamp(rateOfRainfall, 0, 50);
-            _radarLidarController.rateOfRainfall = clampedRain;
+            _lidarController.RateOfRainfall = clampedRain;
             _rainEffect.RainIntensity = Mathf.Clamp01(clampedRain / 50f);
             if (clampedRain != rateOfRainfall) {
                 _rainInput.text = clampedRain.ToString();
@@ -249,23 +257,48 @@ public class SettingsUIManager : MonoBehaviour
     }
 
     public void OnSaveScreenshotToggleChange(bool value) {
-        _perception.enabled = value;
+        // Make sure that the Perception Camera is ENABLED!
+        // NEVER EVER DISABLE THE PERCEPTION CAMERA!
+        _saveScreenshots = value;
+        if(value) {
+            _perception.CaptureRgbImages = _saveColor;
+            _depthLabeler.enabled = _saveDepth;
+            _normalLabeler.enabled = _saveNormal;
+            _segmentationLabeler.enabled = _saveSegment;
+        } else {
+            _perception.CaptureRgbImages = false;
+            _depthLabeler.enabled = false;
+            _normalLabeler.enabled = false;
+            _segmentationLabeler.enabled = false;
+        }
     }
 
     public void OnSaveColorImagesToggleChange(bool value) {
-        _perception.CaptureRgbImages = value;
+        _saveColor = value;
+        if (_saveScreenshots) {
+            _perception.CaptureRgbImages = value;
+        }
     }
 
     public void OnSaveDepthImagesToggleChange(bool value) {
-        _depthLabeler.enabled = value;
+        _saveDepth = value;
+        if (_saveScreenshots) {
+            _depthLabeler.enabled = value;
+        }
     }
 
     public void OnSaveNormalImagesToggleChange(bool value) {
-        _normalLabeler.enabled = value;
+        _saveNormal = value;
+        if (_saveScreenshots) {
+            _normalLabeler.enabled = value;
+        }
     }
 
     public void OnSaveSegmentationImagesToggleChange(bool value) {
-        _segmentationLabeler.enabled = value;
+        _saveSegment = value;
+        if (_saveScreenshots) {
+            _segmentationLabeler.enabled = value;
+        }
     }
 
     // The robot and boat stuff

@@ -1378,7 +1378,7 @@ MonoBehaviour:
     m_BarrelClipping: 0.25
     m_Anamorphism: 0
   flipYMode: 0
-  xrRendering: 1
+  xrRendering: 0
   fullscreenPassthrough: 0
   allowDynamicResolution: 0
   customRenderingSettings: 0
@@ -2263,6 +2263,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 110e9b963a5026a449c38561db459a61, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  _movementActive: 0
   ForceMultiplier: 1
   TorqueMultiplier: 0.01
   vehicle: {fileID: 8037176971008007106}
@@ -2307,9 +2308,15 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   broadcastROSMessages: 1
+  LidarOrigin: {fileID: 1386300038492920449}
+  RadarOrigin: {fileID: 1386300038492920449}
+  LidarVisualization: {fileID: 0}
+  LidarShowRainHits: 0
   sweepTransform: {fileID: 0}
   radarDot: {fileID: 8269650371191618296, guid: ebff06dbfcfddf04fb0c3d51914744cf,
     type: 3}
+  HorzResolution: 512
+  VertResolution: 32
   lidarDotPrefab: {fileID: 8269650371191618296, guid: 865c7aac55fd0a2dbb5aa90a47a313d3,
     type: 3}
   beamRadius: 0.2
@@ -2326,11 +2333,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: eb93f1661ff88efaca4564090c7dc8ea, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  _movementActive: 0
   connectOnAwake: 0
   mSpeed: 5
   vehicle: {fileID: 8037176971008007106}
   rb: {fileID: 7402146268976860174}
-  cmdVelTopicPrefix: robot_0/
+  robotNum: 0
 --- !u!1 &8151802039583806067
 GameObject:
   m_ObjectHideFlags: 0

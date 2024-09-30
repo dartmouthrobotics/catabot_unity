@@ -1,0 +1,277 @@
+#pragma kernel CSMain
+
+// Inputs
+float4 _RandomSeed;
+StructuredBuffer<float4> _RawLidarPositions;
+float _DropDistribution;
+float4 _SensorOrigin;
+int _SensorDirection;
+bool _LidarColorRainHit;
+
+// Consts
+float kMaxLidarDistance = 50;
+float kDoubleMaxLidarDistance = 100;
+int kNumThreadsPerAxis = 8;
+float4 kHsvK = float4(1, 0.666666, 0.333333, 3);
+
+//float kPi = 3.14159;
+//float kBeamRadius = 0.02;
+//float dropSizeMin = 0.5;
+//float dropSizeMax = 6.0;
+//float dropSizeAvg = 3.25;
+//float extinctionEfficiency = 2.0;
+//float backscatterEfficiency = 2.0;
+float threshold = 0.000005;
+float sigma = 0.2;
+float mu = 0;
+
+float kBeamVolumeOneMeter = 3.14159 * pow(0.02, 2.0);
+float kExtinctionCrossSectionMean = 2 * ((3.14159 * pow(3.25, 2.0)) / 4.0);
+float kBackscatterCrossSectionMean = 2 * ((3.14159 * pow(3.25, 2.0)) / 4.0);
+float kBackscatterCoefficient90Percent = 0.9 / 3.14159;
+
+float3 kColorGreen = float3(0, 1, 0);
+float3 kColorRed = float3(1, 0, 0);
+
+//float minimapRange = 525;
+//float minimapGraphicRadius = 100;
+//float kPosToMinimap = 100.0 / 525.0;
+
+float numReadingsX= 128;
+float numDegreesBetweenReadingsX = 0;
+float startDegreeX = 0;
+float numReadingsY = 128;
+float numDegreesBetweenReadingsY = 0;
+float startDegreeY = 0;
+
+// Outputs
+//RWStructuredBuffer<float> _RainLidarRanges;
+RWStructuredBuffer<float3> _RainLidarPositions;
+RWStructuredBuffer<float> _RainLidarParticleScales;
+RWStructuredBuffer<float3> _RainLidarParticleColors;
+//RWStructuredBuffer<float2> _RainLidarMinimapPositions;
+
+int indexFromId(uint3 id) {
+    return id.x + kNumThreadsPerAxis * (id.y + kNumThreadsPerAxis * id.z);
+}
+
+float3 calculateLidarVector(float3 id) {
+    float x = cos(startDegreeX - (id.x * numDegreesBetweenReadingsX));
+    float y = sin(startDegreeY - (id.y * numDegreesBetweenReadingsY));
+    float z = sqrt(1 - (x * x) - (y * y));
+    return float3(x, y, z);
+}
+
+// Sourced from https://web.archive.org/web/20200207113336/http://lolengine.net/blog/2013/07/27/rgb-to-hsv-in-glsl
+float3 hsv2rgb(float3 hsv) {
+    float3 p = abs(frac(hsv.xxx + kHsvK.xyz) * 6.0 - kHsvK.www);
+    return hsv.z * lerp(kHsvK.xxx, saturate(p - kHsvK.xxx), hsv.y);
+}
+
+//int factorial(int k) {
+//    int factorial = 1;
+//    for (int count = k; count >= 1; count --) {
+//        factorial = factorial * count;
+//    }
+//    return factorial;
+//}
+
+//float probNumRaindrops(float avgNumDrops, int numDrops) {
+//    return exp(-avgNumDrops) * (pow(avgNumDrops, (float) numDrops) / (float) factorial(numDrops));
+//}
+
+float randomFromSeed(float2 Seed) {
+    float randomValue = abs(frac(sin(dot(float2(Seed.x + 1, Seed.y + 1), _RandomSeed.xy)) * _RandomSeed.z));
+    return randomValue > 0 ? randomValue : 0.001;
+}
+
+//float minRandomValue(float2 Seed, float numRands) {
+//    return randomFromSeed(Seed) / numRands;
+    
+//    //TODO: Implement Random!
+//    //float smallestVal = 1;
+//    //for (int j = 0; j < min(numRands, 50); j++) {
+//    //    float value = Random.value;
+//    //    if (value < smallestVal) {
+//    //        smallestVal = value;
+//    //    }
+//    //}
+//    //return smallestVal;
+//}
+
+float relativePower(float distance, float backscatterCoefficient, float scatteringCoefficient) {
+    if (distance == 0) {
+        return 0;
+    } else {
+        return (backscatterCoefficient * exp(-2 * scatteringCoefficient * distance)) / pow(distance, 2);
+    }
+}
+
+// Slightly simplified since the max rate of rain is 50 mm/hr and max lidar distance is 50 m,
+//      which means a fairly large chunk of logic always resolves to true in all cases.
+// See RainProbTest.cs for exact calculations
+// If you, the user, need to increase the rate of rain or increase the max lidar distance,
+//      please rerun the calculations in RainProbTest to make sure that ProbNumRaindrops always returns true.
+//      If it can return false, you will need to update this compute shader appropriately with
+//      line 89 from LidarMath.cs (the multiple calls to ProbNumRaindrops).
+float distanceLidarHitPlusRain(float2 Seed, float lidarDistance) {
+    float probNumRaindrops = _DropDistribution * kBeamVolumeOneMeter * lidarDistance;
+    float probExtraRaindrop = randomFromSeed(Seed.yx);
+
+    if (probNumRaindrops < probExtraRaindrop) {
+        return lidarDistance;
+    } else {
+        int numRaindrops = (int) floor(probNumRaindrops) + (frac(probNumRaindrops) > probExtraRaindrop ? 1 : 0);
+        float coefficientBase = numRaindrops / kBeamVolumeOneMeter;
+        float extinctionCoefficientFromRain = coefficientBase * kExtinctionCrossSectionMean / lidarDistance;
+        //float rainDistance = lidarDistance * minRandomValue(Seed, numRaindrops);
+        float rainDistance = randomFromSeed(Seed) * lidarDistance * 2 / (numRaindrops + 1);
+        if (rainDistance <= 0) {
+            rainDistance = 0.001;
+        }
+        float rainBackscatterCoefficient = coefficientBase * kBackscatterCrossSectionMean / rainDistance;
+
+        float RIO = relativePower(lidarDistance, kBackscatterCoefficient90Percent, extinctionCoefficientFromRain);
+        float RIRD = relativePower(rainDistance, rainBackscatterCoefficient, 0);
+        if (RIO > RIRD) { // Returned Intesity of Object is greater than RI of Rain Drops
+            return RIO > threshold ? lidarDistance : 0;
+        } else { // Rain Drops beat the actual Object
+            return RIRD > threshold ? rainDistance : 0;
+        }
+    }
+}
+
+// Slightly simplified since the max rate of rain is 50 mm/hr and max lidar distance is 50 m,
+//      which means a fairly large chunk of logic always resolves to true in all cases.
+// See RainProbTest.cs for exact calculations
+// If you, the user, need to increase the rate of rain or increase the max lidar distance,
+//      please rerun the calculations in RainProbTest to make sure that ProbNumRaindrops always returns true.
+//      If it can return false, you will need to update this compute shader appropriately with
+//      line 89 from LidarMath.cs (the multiple calls to ProbNumRaindrops).
+float distanceLidarOnlyRain(float2 Seed) {
+    float probNumRaindrops = _DropDistribution * kBeamVolumeOneMeter * kMaxLidarDistance;
+    float probExtraRaindrop = randomFromSeed(Seed.yx);
+
+    if (probNumRaindrops < probExtraRaindrop) {
+        return 0;
+    } else {
+        int numRaindrops = (int) floor(probNumRaindrops) + (frac(probNumRaindrops) > probExtraRaindrop ? 1 : 0);
+        float coefficientBase = numRaindrops / kBeamVolumeOneMeter;
+        //float rainDistance = kMaxLidarDistance * minRandomValue(Seed, numRaindrops);
+        float rainDistance = randomFromSeed(Seed) * kDoubleMaxLidarDistance / (numRaindrops + 1);
+        float rainBackscatterCoefficient = coefficientBase * kBackscatterCrossSectionMean / rainDistance;
+        float RIRD = relativePower(rainDistance, rainBackscatterCoefficient, 0);
+        return RIRD > threshold ? rainDistance : 0;
+    }
+}
+
+float gaussianMath(float2 seed, float mu, float sigma) {
+    float x1, x2, w, y1;
+
+    x1 = 2.0 * randomFromSeed(seed.xx) - 1.0;
+    x2 = 2.0 * randomFromSeed(seed.yy) - 1.0;
+    w = x1 * x1 + x2 * x2;
+    while (abs(w) >= 1 || w == 0) {
+        if (x1 > 0.1) {
+            x1 -= 0.1;
+        }
+        if (x2 > 0.1) {
+            x2 -= 0.1;
+        }
+        w = x1 * x1 + x2 * x2;
+    }
+
+    w = sqrt((-2.0 * log(w)) / w);
+    y1 = x1 * w;
+    return (y1 * sigma) + mu;
+}
+
+[numthreads(8,8,1)]
+void CSMain (uint3 id : SV_DispatchThreadID) {
+    // Initialize constants
+    kMaxLidarDistance = 50;
+    kDoubleMaxLidarDistance = 100;
+    kNumThreadsPerAxis = 8;
+    kHsvK = float4(1, 0.666666, 0.333333, 3);
+    
+    threshold = 0.000005;
+    sigma = 0.2;
+    mu = 0;
+
+    kBeamVolumeOneMeter = 3.14159 * pow(0.02, 2.0);
+    kExtinctionCrossSectionMean = 2 * ((3.14159 * pow(3.25, 2.0)) / 4.0);
+    kBackscatterCrossSectionMean = 2 * ((3.14159 * pow(3.25, 2.0)) / 4.0);
+    kBackscatterCoefficient90Percent = 0.9 / 3.14159;
+
+    kColorGreen = float3(0, 1, 0);
+    kColorRed = float3(1, 0, 0);
+    
+    //kPosToMinimap = 100.0 / 525.0;
+
+    numReadingsX = 128.0;
+    numDegreesBetweenReadingsX = radians(90.0 / numReadingsX);
+    startDegreeX = radians(135.0);
+    numReadingsY = 32.0;
+    numDegreesBetweenReadingsY = radians(45.0 / numReadingsY);
+    startDegreeY = radians(22.5);
+    
+    // Main code
+    int index = indexFromId(id);
+    // Just in case, only run calculations for indices that are within the provided data range
+    if (index < 32*128) {
+        float3 lidarPosCopy = (float3) _RawLidarPositions[index];
+
+        float rangeWithoutRain = length(lidarPosCopy);
+        if (rangeWithoutRain <= 0) {
+            rangeWithoutRain = 0.001;
+        }
+        float rangeWithRain = 0;
+        if (_RawLidarPositions[index].z > 0 ) { // Lidar hit something
+            if (rangeWithoutRain <= kMaxLidarDistance) { // Reading was within the max range of lidar
+                rangeWithRain = distanceLidarHitPlusRain(id.xy, rangeWithoutRain);
+            } else { // Reading is beyond max range of lidar
+                rangeWithRain = distanceLidarOnlyRain(id.xy);
+            }
+        } else { // Lidar did not hit something
+            //lidarPosCopy = float3(lidarPosCopy.x, lidarPosCopy.y, 1);
+            lidarPosCopy = calculateLidarVector(id);
+            rangeWithRain = distanceLidarOnlyRain(id.xy);
+        }
+
+        //rangeWithRain = rangeWithRain + gaussianMath(id.xy, mu, sigma);
+
+        if (rangeWithRain > 0) { // Lidar hit something (solid object or the rain)
+            //_RainLidarRanges[index] = rangeWithRain;
+            float3 lidarPosWithRain = normalize(lidarPosCopy) * rangeWithRain;
+            switch (_SensorDirection) {
+                case 0: // North
+                    lidarPosWithRain = lidarPosWithRain;
+                    break;
+                case 1: // East
+                    lidarPosWithRain = float3(lidarPosWithRain.z, lidarPosWithRain.y, -lidarPosWithRain.x);
+                    break;
+                case 2: // South
+                    lidarPosWithRain = float3(-lidarPosWithRain.x, lidarPosWithRain.y, -lidarPosWithRain.z);
+                    break;
+                default: //3: West
+                    lidarPosWithRain = float3(-lidarPosWithRain.z, lidarPosWithRain.y, lidarPosWithRain.x);
+                    break;
+            }
+            _RainLidarPositions[index] = _SensorOrigin.xyz + lidarPosWithRain;
+            float rangePercentage = rangeWithRain / kMaxLidarDistance;
+            _RainLidarParticleScales[index] = rangePercentage;
+            if (_LidarColorRainHit) {
+                _RainLidarParticleColors[index] = _RawLidarPositions[index].z > 0 ? kColorGreen : kColorRed;
+            } else {
+                _RainLidarParticleColors[index] = hsv2rgb(float3(rangePercentage, 1, 1));
+            }
+            //_RainLidarMinimapPositions[index] = lidarPosWithRain.xz * kPosToMinimap;
+        } else { // Lidar didn't hit anything, including the rain
+            //_RainLidarRanges[index] = 0;
+            _RainLidarPositions[index] = float3(0, 0, 0);
+            _RainLidarParticleScales[index] = 0;
+            _RainLidarParticleColors[index] = float3(0, 0, 0);
+            //_RainLidarMinimapPositions[index] = float2(0, 0);
+        }
+    }
+}
