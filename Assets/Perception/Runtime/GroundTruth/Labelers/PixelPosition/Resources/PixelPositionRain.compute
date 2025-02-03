@@ -40,9 +40,10 @@ float3 kColorRed = float3(1, 0, 0);
 float numReadingsX= 128;
 float numDegreesBetweenReadingsX = 0;
 float startDegreeX = 0;
-float numReadingsY = 128;
+float numReadingsY = 32;
 float numDegreesBetweenReadingsY = 0;
 float startDegreeY = 0;
+float totalNumReadings = 32 * 128;
 
 // Outputs
 //RWStructuredBuffer<float> _RainLidarRanges;
@@ -214,27 +215,32 @@ void CSMain (uint3 id : SV_DispatchThreadID) {
     numReadingsY = 32.0;
     numDegreesBetweenReadingsY = radians(45.0 / numReadingsY);
     startDegreeY = radians(22.5);
+    totalNumReadings = numReadingsX * numReadingsY;
     
     // Main code
     int index = indexFromId(id);
     // Just in case, only run calculations for indices that are within the provided data range
-    if (index < 32*128) {
+    if (index < totalNumReadings) {
+        // Get the position of this specific lidar beam
+        uint3 correctId = uint3(index % numReadingsX, index / numReadingsX, 0);
+        float3 lidarVector = calculateLidarVector(correctId);
         float3 lidarPosCopy = (float3) _RawLidarPositions[index];
+
+        // Rain Lidar calculations
 
         float rangeWithoutRain = length(lidarPosCopy);
         if (rangeWithoutRain <= 0) {
             rangeWithoutRain = 0.001;
         }
         float rangeWithRain = 0;
-        if (_RawLidarPositions[index].z > 0 ) { // Lidar hit something
+        if (lidarPosCopy.z > 0) { // Lidar hit something
             if (rangeWithoutRain <= kMaxLidarDistance) { // Reading was within the max range of lidar
                 rangeWithRain = distanceLidarHitPlusRain(id.xy, rangeWithoutRain);
             } else { // Reading is beyond max range of lidar
                 rangeWithRain = distanceLidarOnlyRain(id.xy);
             }
         } else { // Lidar did not hit something
-            //lidarPosCopy = float3(lidarPosCopy.x, lidarPosCopy.y, 1);
-            lidarPosCopy = calculateLidarVector(id);
+            lidarPosCopy = lidarVector;
             rangeWithRain = distanceLidarOnlyRain(id.xy);
         }
 
@@ -261,7 +267,7 @@ void CSMain (uint3 id : SV_DispatchThreadID) {
             float rangePercentage = rangeWithRain / kMaxLidarDistance;
             _RainLidarParticleScales[index] = rangePercentage;
             if (_LidarColorRainHit) {
-                _RainLidarParticleColors[index] = _RawLidarPositions[index].z > 0 ? kColorGreen : kColorRed;
+                _RainLidarParticleColors[index] = lidarPosCopy.z > 0 ? kColorGreen : kColorRed;
             } else {
                 _RainLidarParticleColors[index] = hsv2rgb(float3(rangePercentage, 1, 1));
             }

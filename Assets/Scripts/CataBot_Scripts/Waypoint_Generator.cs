@@ -46,7 +46,7 @@ public class WaypointFollower : VehicleMovementBase
             Vector3 direction = lookAtGoal - transform.position;
             transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(direction), Time.deltaTime * rotspeed);
 
-            if(direction.magnitude < 0.4f) {
+            if(direction.magnitude < 3f) {
                 if(forwardDirection) {
                     present_waypoint++;
                     if(present_waypoint >= waypoints.Count) {
